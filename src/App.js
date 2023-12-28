@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import NavBar from './components/NavBar'
 import Search from './components/Search'
 import NumResults from './components/NumResults'
@@ -8,6 +8,8 @@ import MovieList from './components/MovieList'
 import WatchedSummary from './components/WatchedSummary';
 import WatchedMoviesList from './components/WatchedMoviesList';
 import StarRating from './components/StarRating'
+import Loader from './components/Loader'
+import ErrorMessage from './components/ErrorMessage'
 
 const tempMovieData = [
     {
@@ -53,26 +55,58 @@ const tempWatchedData = [
     }
 ];
 
+const KEY = "d2a4c73c";
+
 const App = () => {
-    const [movies, setMovies] = useState(tempMovieData);
-    const [watched, setWatched] = useState(tempWatchedData);
+    const [movies, setMovies] = useState([]);
+    const [watched, setWatched] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [query, setQuery] = useState("");
+    const tempQuery = "interstellar";
+
+    useEffect(() => {
+        const fetchMovies = async () => {
+            try {
+                setIsLoading(true)
+                setError("")
+                const res = await fetch(`http://www.omdbapi.com/?apikey=${KEY}&s=${query}`);
+                if (!res.ok) {
+                    throw new Error("Something went wrong with fetching movies")
+                }
+                const data = await res.json();
+                if (data.Response === 'False') {
+                    throw new Error("Movie not found")
+                }
+                setMovies(data.Search);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        if (query.length < 3) {
+            setMovies([])
+            setError("")
+            return
+        }
+
+        fetchMovies();
+    }, [query]);
 
     return (
         <> 
-            <StarRating 
-                maxRating={5} 
-                className="" 
-                messages={['Terrible', 'Bad', 'Okay', 'Good', 'Amazing']} 
-                defaultRating={3} 
-            />
             <NavBar>
-                <Search />
+                <Search query={query} setQuery={setQuery} />
                 <NumResults movies={movies} />
             </NavBar>
 
             <Main>
                 <Box>
-                    <MovieList movies={movies} />
+                    {isLoading && <Loader />}
+                    {!isLoading && !error && <MovieList movies={movies} />}
+                    {error && <ErrorMessage message={error} />}
                 </Box>
                 <Box watched={watched}>
                     <WatchedSummary watched={watched} />
@@ -84,3 +118,12 @@ const App = () => {
 }
 
 export default App
+
+/*
+<StarRating 
+    maxRating={5} 
+    className="" 
+    messages={['Terrible', 'Bad', 'Okay', 'Good', 'Amazing']} 
+    defaultRating={3} 
+/>
+*/
